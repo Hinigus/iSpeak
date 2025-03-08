@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive English Learning</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+    }
+    .container {
+      background-color: #fff;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+      color: #333;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px 0;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .section {
+      display: none;
+    }
+    .section.active {
+      display: block;
+    }
+    audio {
+      width: 100%;
+      margin: 20px 0;
+    }
+    .status {
+      color: #666;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 10px;
+      background-color: #e9ecef;
+      border-radius: 5px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background-color: #007bff;
+      width: 0;
+      transition: width 0.3s ease;
+    }
+    .footer {
+      margin-top: 20px;
+      color: #666;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Full Conversation Section -->
+    <div id="full-conversation-section" class="section active">
+      <h1>Listen to the Full Conversation</h1>
+      <audio id="full-conversation" controls>
+        <source src="Qn for hawi N answer.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+      </audio>
+      <button id="next-section-btn" disabled>Next Section</button>
+    </div>
+
+    <!-- Practice Mode Section -->
+    <div id="practice-section" class="section">
+      <h1>Practice Mode</h1>
+      <div class="status" id="status">Question: 0/11</div>
+      <div class="progress-bar">
+        <div class="progress-bar-inner" id="progress-bar-inner"></div>
+      </div>
+      <button id="start-practice-btn">Start Practice</button>
+      <div id="question-container" style="display: none;">
+        <audio id="question-audio" controls></audio>
+      </div>
+    </div>
+
+    <!-- Listen to Your Conversation Section -->
+    <div id="listen-section" class="section">
+      <h1>Listen to Your Conversation</h1>
+      <button id="listen-conversation-btn">Listen to Your Conversation</button>
+      <audio id="merged-conversation" controls style="display: none;"></audio>
+    </div>
+    <div class="footer">Interactive English Learning App</div>
+  </div>
+
+  <script>
+    const questionFiles = [
+      "question1.mp3", "question2.mp3", "question3.mp3",
+      "question4.mp3", "question5.mp3", "question6.mp3",
+      "question7.mp3", "question8.mp3", "question9.mp3",
+      "question10.mp3", "question11.mp3" // Ensure this file exists
+    ];
+
+    // DOM Elements
+    const sections = {
+      full: document.getElementById("full-conversation-section"),
+      practice: document.getElementById("practice-section"),
+      listen: document.getElementById("listen-section")
+    };
+    const statusElement = document.getElementById("status");
+    const progressBarInner = document.getElementById("progress-bar-inner");
+    const fullConversationAudio = document.getElementById("full-conversation");
+    const questionAudio = document.getElementById("question-audio");
+    let currentQuestionIndex = 0;
+    let recordedAnswers = [];
+    let mediaRecorder;
+    let mediaStream;
+    let chunks = [];
+
+    // Microphone permission state
+    let micPermissionGranted = localStorage.getItem("micPermissionGranted") === "true";
+
+    // Full conversation listener
+    fullConversationAudio.addEventListener("ended", () => {
+      document.getElementById("next-section-btn").disabled = false;
+    });
+
+    // Navigation handlers
+    document.getElementById("next-section-btn").addEventListener("click", () => {
+      sections.full.classList.remove("active");
+      sections.practice.classList.add("active");
+    });
+
+    // Practice mode initialization
+    document.getElementById("start-practice-btn").addEventListener("click", async () => {
+      document.getElementById("start-practice-btn").style.display = "none";
+      document.getElementById("question-container").style.display = "block";
+      await initializeRecording();
+      loadQuestion(currentQuestionIndex);
+    });
+
+    // Recording setup
+    async function initializeRecording() {
+      if (!micPermissionGranted) {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          localStorage.setItem("micPermissionGranted", "true");
+          micPermissionGranted = true;
+        } catch (error) {
+          alert("Microphone access is required. Please allow access to continue.");
+          return;
+        }
+      } else {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+
+      mediaRecorder = new MediaRecorder(mediaStream);
+      mediaRecorder.ondataavailable = (event) => chunks.push(event.data);
+    }
+
+    function loadQuestion(index) {
+      statusElement.textContent = `Question: ${index + 1}/${questionFiles.length}`;
+      progressBarInner.style.width = `${((index + 1) / questionFiles.length) * 100}%`;
+      
+      // Reset audio and load new question
+      questionAudio.src = "";
+      questionAudio.src = questionFiles[index];
+      questionAudio.play().catch(error => console.error("Audio play error:", error));
+      
+      questionAudio.onended = startRecording;
+    }
+
+    function startRecording() {
+      chunks = [];
+      mediaRecorder.start();
+
+      setTimeout(() => {
+        mediaRecorder.stop();
+      }, 6000);
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(chunks, { type: "audio/webm" });
+        recordedAnswers.push(URL.createObjectURL(audioBlob));
+
+        // Proceed to next question or finish
+        if (currentQuestionIndex < questionFiles.length - 1) {
+          currentQuestionIndex++;
+          loadQuestion(currentQuestionIndex);
+        } else {
+          finishPractice();
+        }
+      };
+    }
+
+    function finishPractice() {
+      sections.practice.classList.remove("active");
+      sections.listen.classList.add("active");
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+
+    // Playback handler
+    document.getElementById("listen-conversation-btn").addEventListener("click", () => {
+      const playbackElement = document.getElementById("merged-conversation");
+      playbackElement.style.display = "block";
+
+      let currentIndex = 0;
+      function playNext() {
+        if (currentIndex >= questionFiles.length) return;
+
+        const question = new Audio(questionFiles[currentIndex]);
+        question.play().then(() => {
+          question.onended = () => {
+            if (recordedAnswers[currentIndex]) {
+              const answer = new Audio(recordedAnswers[currentIndex]);
+              answer.play();
+              answer.onended = () => {
+                currentIndex++;
+                playNext();
+              };
+            } else {
+              currentIndex++;
+              playNext();
+            }
+          };
+        }).catch(error => console.error("Playback error:", error));
+      }
+      playNext();
+    });
+  </script>
+</body>
+</html>
